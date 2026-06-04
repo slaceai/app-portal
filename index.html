@@ -25,20 +25,15 @@
 
 <form id="appForm">
   <h2>New App Order</h2>
-  <label>Company Name:</label>
-  <input type="text" id="compName" required>
-  <label>Core Concept:</label>
-  <textarea id="concept" rows="3" required></textarea>
+  <label>Company Name:</label> <input type="text" id="compName" required>
+  <label>Core Concept:</label> <textarea id="concept" rows="3" required></textarea>
   <label>UI Style:</label>
   <select id="uiStyle">
     <option value="minimalist">Minimalist</option>
     <option value="bold">Bold & Vibrant</option>
-    <option value="professional">Professional</option>
   </select>
-  <label>Theme Color:</label>
-  <input type="color" id="themeColor">
-  <label>Logo URL (Optional):</label>
-  <input type="url" id="logoURL" placeholder="https://example.com/logo.png">
+  <label>Theme Color:</label> <input type="color" id="themeColor">
+  <label>Logo URL (Optional):</label> <input type="url" id="logoURL">
   <button type="button" class="action-btn" onclick="submitRequest()">Submit Request</button>
 </form>
 
@@ -46,33 +41,23 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-  import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
-
+  import { getDatabase, ref, push, onValue, update } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
   const db = getDatabase(initializeApp({ databaseURL: "https://slace-4d2ae-default-rtdb.asia-southeast1.firebasedatabase.app/" }));
 
-  // Go Back Logic
-  window.goBack = () => {
-    const form = document.getElementById('appForm');
-    const list = document.getElementById('listView');
-    if (list.style.display === 'block') {
-      list.style.display = 'none';
-      form.style.display = 'block';
-    } else {
-      history.back();
-    }
+  window.goBack = () => { 
+    if(document.getElementById('listView').style.display === 'block') {
+      document.getElementById('listView').style.display = 'none';
+      document.getElementById('appForm').style.display = 'block';
+    } else { history.back(); }
   };
 
   window.submitRequest = () => {
-    const data = {
+    push(ref(db, 'inquiries/'), {
       company: document.getElementById("compName").value,
       concept: document.getElementById("concept").value,
-      ui: document.getElementById("uiStyle").value,
-      theme: document.getElementById("themeColor").value,
-      logo: document.getElementById("logoURL").value,
       status: "Pending",
       timestamp: new Date().toLocaleDateString()
-    };
-    push(ref(db, 'inquiries/'), data).then(() => alert("Request Received!"));
+    }).then(() => alert("Request Received!"));
   };
 
   window.showRequests = () => {
@@ -83,15 +68,35 @@
       list.innerHTML = "<h3>Orders Status</h3>";
       snapshot.forEach((child) => {
         let d = child.val();
-        list.innerHTML += `
-          <div class="card">
-            <p><b>${d.company}</b><br>Status: ${d.status}</p>
-            ${d.status === 'Completed' ? 
-              `<a href="${d.appLink}" download><button style="background: #007bff; width:100%;">Download .apk</button></a>` : 
-              `<button onclick="window.location.href='upi://pay?pa=adityashrivastav392@oksbi&pn=Aditya&am=100.00&cu=INR&tn=App_Payment'" style="width:100%; background:#28a745;">Pay ₹100 & Approve</button>`}
-          </div>`;
+        let key = child.key;
+        
+        let statusDisplay = `<p><b>${d.company}</b><br>Status: ${d.status}</p>`;
+        let actions = "";
+
+        if (d.status === 'Payment_Pending') {
+          actions = `
+            <button onclick="window.location.href='upi://pay?pa=adityashrivastav392@oksbi&pn=Aditya&am=${d.price}&cu=INR&tn=App_Payment'" style="width:100%; background:#28a745; margin-bottom:10px;">Pay ₹${d.price} Now</button>
+            <input type="text" id="utr_${key}" placeholder="Enter 12-digit UTR Number">
+            <button style="background:#6c757d; width:100%;" onclick="submitUTR('${key}')">Submit UTR for Verification</button>`;
+        } else if (d.status === 'Completed') {
+          actions = `<a href="${d.appLink}" download><button style="background:#007bff; width:100%;">Download .apk</button></a>`;
+        } else if (d.status === 'Verify_Pending') {
+          actions = `<p><i>UTR submitted, waiting for Admin...</i></p>`;
+        }
+
+        list.innerHTML += `<div class="card">${statusDisplay}${actions}</div>`;
       });
     });
+  };
+
+  window.submitUTR = (id) => {
+    let utr = document.getElementById('utr_' + id).value;
+    if(utr.length >= 10) {
+      update(ref(db, 'inquiries/' + id), { status: "Verify_Pending", utr: utr });
+      alert("UTR submitted! Admin verification ka wait karein.");
+    } else {
+      alert("Valid UTR enter karein!");
+    }
   };
 </script>
 </body>
