@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aditya Sanskar App Portal</title>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; margin: 0; padding: 15px; }
+    .nav-container { position: fixed; top: 10px; left: 10px; z-index: 100; display: flex; gap: 10px; }
+    #listView { display: none; margin-top: 60px; max-width: 400px; margin: 60px auto; }
+    form { background: white; padding: 20px; border-radius: 12px; width: 100%; max-width: 400px; margin: 60px auto; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+    h2 { text-align: center; color: #333; }
+    label { font-size: 14px; color: #555; display: block; margin-top: 10px; }
+    input, textarea, select { width: 100%; padding: 12px; margin: 5px 0 10px 0; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
+    button { padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    .action-btn { width: 100%; padding: 14px; background-color: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 10px; }
+    .card { background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 5px solid #28a745; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+  </style>
+</head>
+<body>
+
+<div class="nav-container">
+  <button onclick="goBack()">Back</button>
+  <button onclick="showRequests()">My Requests</button>
+</div>
+
+<form id="appForm">
+  <h2>New App Order</h2>
+  <label>Company Name:</label>
+  <input type="text" id="compName" required>
+  <label>Core Concept:</label>
+  <textarea id="concept" rows="3" required></textarea>
+  <label>UI Style:</label>
+  <select id="uiStyle">
+    <option value="minimalist">Minimalist</option>
+    <option value="bold">Bold & Vibrant</option>
+    <option value="professional">Professional</option>
+  </select>
+  <label>Theme Color:</label>
+  <input type="color" id="themeColor">
+  <label>Logo URL (Optional):</label>
+  <input type="url" id="logoURL" placeholder="https://example.com/logo.png">
+  <button type="button" class="action-btn" onclick="submitRequest()">Submit Request</button>
+</form>
+
+<div id="listView"></div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+  import { getDatabase, ref, push, onValue } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+
+  const db = getDatabase(initializeApp({ databaseURL: "https://slace-4d2ae-default-rtdb.asia-southeast1.firebasedatabase.app/" }));
+
+  // Go Back Logic
+  window.goBack = () => {
+    const form = document.getElementById('appForm');
+    const list = document.getElementById('listView');
+    if (list.style.display === 'block') {
+      list.style.display = 'none';
+      form.style.display = 'block';
+    } else {
+      history.back();
+    }
+  };
+
+  window.submitRequest = () => {
+    const data = {
+      company: document.getElementById("compName").value,
+      concept: document.getElementById("concept").value,
+      ui: document.getElementById("uiStyle").value,
+      theme: document.getElementById("themeColor").value,
+      logo: document.getElementById("logoURL").value,
+      status: "Pending",
+      timestamp: new Date().toLocaleDateString()
+    };
+    push(ref(db, 'inquiries/'), data).then(() => alert("Request Received!"));
+  };
+
+  window.showRequests = () => {
+    document.getElementById('appForm').style.display = 'none';
+    document.getElementById('listView').style.display = 'block';
+    onValue(ref(db, 'inquiries/'), (snapshot) => {
+      let list = document.getElementById('listView');
+      list.innerHTML = "<h3>Orders Status</h3>";
+      snapshot.forEach((child) => {
+        let d = child.val();
+        list.innerHTML += `
+          <div class="card">
+            <p><b>${d.company}</b><br>Status: ${d.status}</p>
+            ${d.status === 'Completed' ? 
+              `<a href="${d.appLink}" download><button style="background: #007bff; width:100%;">Download .apk</button></a>` : 
+              `<button onclick="window.location.href='upi://pay?pa=adityashrivastav392@oksbi&pn=Aditya&am=100.00&cu=INR&tn=App_Payment'" style="width:100%; background:#28a745;">Pay ₹100 & Approve</button>`}
+          </div>`;
+      });
+    });
+  };
+</script>
+</body>
+</html>
