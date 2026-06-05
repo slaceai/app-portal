@@ -2,29 +2,28 @@
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Slace app creator portal</title>
+  <title>Aditya Sanskar Portal</title>
   <style>
     body { font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; margin: 0; padding: 15px; }
-    .nav-container { position: fixed; top: 10px; left: 10px; z-index: 100; display: flex; gap: 10px; }
-    #listView { display: none; margin-top: 60px; max-width: 400px; margin: 60px auto; }
-    form { background: white; padding: 20px; border-radius: 12px; width: 100%; max-width: 400px; margin: 60px auto; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-    h2 { text-align: center; color: #333; }
-    label { font-size: 14px; color: #555; display: block; margin-top: 10px; }
-    input, textarea, select { width: 100%; padding: 12px; margin: 5px 0 10px 0; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
-    button { padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
-    .action-btn { width: 100%; padding: 14px; background-color: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; margin-top: 10px; }
+    .nav-container { position: fixed; top: 10px; left: 10px; z-index: 100; }
+    #listView, #chatView { display: none; margin-top: 60px; max-width: 400px; margin: 60px auto; }
+    form { background: white; padding: 20px; border-radius: 12px; max-width: 400px; margin: 60px auto; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
     .card { background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; border-left: 5px solid #28a745; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    input, textarea, select { width: 100%; padding: 12px; margin: 5px 0 10px 0; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
+    button { padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; margin-top: 5px; width: 100%; }
+    #chatMessages { height: 300px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px; background: white; margin-bottom: 10px; }
   </style>
 </head>
 <body>
 
 <div class="nav-container">
-  <button onclick="goBack()">Back</button>
-  <button onclick="showRequests()">My Requests</button>
+  <button onclick="goBack()" style="width: auto;">Back</button>
+  <button onclick="showRequests()" style="width: auto;">My Requests</button>
 </div>
 
 <form id="appForm">
-  <h2>Slace app creator portal</h2>
+  <h2>Aditya Sanskar Portal</h2>
+  <label>Your Name:</label> <input type="text" id="userName" required>
   <label>Company Name:</label> <input type="text" id="compName" required>
   <label>Core Concept:</label> <textarea id="concept" rows="3" required></textarea>
   <label>UI Style:</label>
@@ -34,30 +33,41 @@
   </select>
   <label>Theme Color:</label> <input type="color" id="themeColor">
   <label>Logo URL (Optional):</label> <input type="url" id="logoURL">
-  <button type="button" class="action-btn" onclick="submitRequest()">Submit Request</button>
+  <button type="button" style="background:#28a745; padding:14px;" onclick="submitRequest()">Submit Request</button>
 </form>
 
 <div id="listView"></div>
 
+<div id="chatView">
+  <h3 id="chatTitle">Chat</h3>
+  <div id="chatMessages"></div>
+  <input type="text" id="msgInput" placeholder="Type a message...">
+  <button onclick="sendMsg()">Send</button>
+</div>
+
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
   import { getDatabase, ref, push, onValue, update } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+  
   const db = getDatabase(initializeApp({ databaseURL: "https://slace-4d2ae-default-rtdb.asia-southeast1.firebasedatabase.app/" }));
+  let currentOrderId = "";
 
-  window.goBack = () => { 
-    if(document.getElementById('listView').style.display === 'block') {
-      document.getElementById('listView').style.display = 'none';
-      document.getElementById('appForm').style.display = 'block';
-    } else { history.back(); }
+  window.goBack = () => {
+    document.getElementById('appForm').style.display = 'block';
+    document.getElementById('listView').style.display = 'none';
+    document.getElementById('chatView').style.display = 'none';
   };
 
   window.submitRequest = () => {
     push(ref(db, 'inquiries/'), {
+      userName: document.getElementById("userName").value,
       company: document.getElementById("compName").value,
       concept: document.getElementById("concept").value,
-      status: "Pending",
-      timestamp: new Date().toLocaleDateString()
-    }).then(() => alert("Request Received!"));
+      uiStyle: document.getElementById("uiStyle").value,
+      themeColor: document.getElementById("themeColor").value,
+      logoURL: document.getElementById("logoURL").value,
+      status: "Pending"
+    }).then(() => alert("Request Submitted!"));
   };
 
   window.showRequests = () => {
@@ -65,37 +75,60 @@
     document.getElementById('listView').style.display = 'block';
     onValue(ref(db, 'inquiries/'), (snapshot) => {
       let list = document.getElementById('listView');
-      list.innerHTML = "<h3>Orders Status</h3>";
+      list.innerHTML = "<h3>My Requests</h3>";
       snapshot.forEach((child) => {
         let d = child.val();
         let key = child.key;
+        let card = document.createElement('div');
+        card.className = 'card';
+        card.innerHTML = `<p><b>User:</b> ${d.userName}<br><b>Company:</b> ${d.company}<br><b>Status:</b> ${d.status}</p>`;
         
-        let statusDisplay = `<p><b>${d.company}</b><br>Status: ${d.status}</p>`;
-        let actions = "";
+        // Chat Button
+        let chatBtn = document.createElement('button');
+        chatBtn.innerText = "Open Chat";
+        chatBtn.onclick = () => openChat(key, d.company);
+        card.appendChild(chatBtn);
 
+        // Payment logic
         if (d.status === 'Payment_Pending') {
-          actions = `
-            <button onclick="window.location.href='upi://pay?pa=adityashrivastav392@oksbi&pn=Aditya&am=${d.price}&cu=INR&tn=App_Payment'" style="width:100%; background:#28a745; margin-bottom:10px;">Pay ₹${d.price} Now</button>
-            <input type="text" id="utr_${key}" placeholder="Enter 12-digit UTR Number">
-            <button style="background:#6c757d; width:100%;" onclick="submitUTR('${key}')">Submit UTR for Verification</button>`;
-        } else if (d.status === 'Completed') {
-          actions = `<a href="${d.appLink}" download><button style="background:#007bff; width:100%;">Download .apk</button></a>`;
-        } else if (d.status === 'Verify_Pending') {
-          actions = `<p><i>UTR submitted, waiting for Admin...</i></p>`;
+          let payBtn = document.createElement('button');
+          payBtn.style.background = "#ff9800";
+          payBtn.innerHTML = "Pay ₹" + d.price + " Now";
+          payBtn.onclick = () => {
+            window.location.href = `upi://pay?pa=adityashrivastav392@oksbi&pn=Aditya&am=${d.price}&cu=INR&tn=App_Payment`;
+            let utr = prompt("Payment karne ke baad 12-digit UTR enter karein:");
+            if(utr) {
+               update(ref(db, 'inquiries/' + key), { status: "Verify_Pending", utr: utr });
+               alert("UTR submitted for verification!");
+            }
+          };
+          card.appendChild(payBtn);
         }
-
-        list.innerHTML += `<div class="card">${statusDisplay}${actions}</div>`;
+        list.appendChild(card);
       });
     });
   };
 
-  window.submitUTR = (id) => {
-    let utr = document.getElementById('utr_' + id).value;
-    if(utr.length >= 10) {
-      update(ref(db, 'inquiries/' + id), { status: "Verify_Pending", utr: utr });
-      alert("UTR submitted! Admin verification ka wait karein.");
-    } else {
-      alert("Valid UTR enter karein!");
+  window.openChat = (id, comp) => {
+    currentOrderId = id;
+    document.getElementById('listView').style.display = 'none';
+    document.getElementById('chatView').style.display = 'block';
+    document.getElementById('chatTitle').innerText = "Chat: " + comp;
+    
+    onValue(ref(db, 'chats/' + id), (snapshot) => {
+      let msgDiv = document.getElementById('chatMessages');
+      msgDiv.innerHTML = "";
+      snapshot.forEach((child) => {
+        msgDiv.innerHTML += `<p><b>${child.val().sender}:</b> ${child.val().msg}</p>`;
+      });
+    });
+  };
+
+  window.sendMsg = () => {
+    let msg = document.getElementById("msgInput").value;
+    if(msg) {
+      push(ref(db, 'chats/' + currentOrderId), { msg: msg, sender: "User" });
+      document.getElementById("msgInput").value = "";
     }
   };
 </script>
