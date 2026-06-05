@@ -4,12 +4,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>App creator portal</title>
   <style>
-    /* Login Page Styles */
     #authContainer { max-width: 400px; margin: 50px auto; background: #1a1a1a; padding: 25px; border-radius: 15px; color: white; }
     .auth-input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #333; background: #000; color: white; box-sizing: border-box; }
     .auth-btn { width: 100%; padding: 12px; background: #28a745; border: none; color: white; border-radius: 8px; cursor: pointer; }
-    
-    /* Portal Styles */
     body { font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; margin: 0; padding: 15px; }
     .nav-container { position: fixed; top: 10px; left: 10px; z-index: 100; }
     #listView, #chatView { display: none; margin-top: 60px; max-width: 400px; margin: 60px auto; }
@@ -43,7 +40,6 @@
     <input type="text" id="compName" placeholder="Company Name" required>
     <textarea id="concept" rows="3" placeholder="Core Concept" required></textarea>
     <select id="uiStyle"><option value="minimalist">Minimalist</option><option value="bold">Bold</option></select>
-    <input type="color" id="themeColor">
     <button type="button" style="background:#28a745; padding:14px;" onclick="submitRequest()">Submit Request</button>
   </form>
 
@@ -58,48 +54,45 @@
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
-  import { getDatabase, ref, push, onValue, update, get, set } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+  import { getDatabase, ref, push, onValue, get, set } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
   
-  const db = getDatabase(initializeApp({ databaseURL: "https://slace-4d2ae-default-rtdb.asia-southeast1.firebasedatabase.app/" }));
+  const db = getDatabase(initializeApp({ databaseURL: "https://sate-5a04f-default-rtdb.asia-southeast1.firebasedatabase.app/" }));
   let currentUser = localStorage.getItem("myAppUser");
   let currentOrderId = "";
 
-  // Auth Logic
-  let isLogin = true;
   window.toggleMode = () => {
-    isLogin = !isLogin;
-    document.getElementById('authTitle').innerText = isLogin ? "Sign In" : "Sign Up";
-    document.getElementById('authBtn').innerText = isLogin ? "Sign In" : "Sign Up";
-    document.getElementById('toggleText').innerText = isLogin ? "Don't have an account? Sign Up" : "Already have an account? Sign In";
+    let isLogin = document.getElementById('authTitle').innerText === "Sign In";
+    document.getElementById('authTitle').innerText = isLogin ? "Sign Up" : "Sign In";
+    document.getElementById('authBtn').innerText = isLogin ? "Sign Up" : "Sign In";
+    document.getElementById('toggleText').innerText = isLogin ? "Already have an account? Sign In" : "Don't have an account? Sign Up";
   };
 
   window.handleAuth = async () => {
     const user = document.getElementById('username').value;
     const pass = document.getElementById('password').value;
     const userRef = ref(db, 'accounts/' + user);
-    if (!isLogin) {
-      const snap = await get(userRef);
+    const snap = await get(userRef);
+    if (document.getElementById('authTitle').innerText === "Sign Up") {
       if (snap.exists()) alert("Username exists!"); else { await set(userRef, { password: pass }); alert("Created!"); }
     } else {
-      const snap = await get(userRef);
-      if (snap.exists() && snap.val().password === pass) {
-        localStorage.setItem("myAppUser", user);
-        location.reload();
-      } else alert("Invalid Login!");
+      if (snap.exists() && snap.val().password === pass) { localStorage.setItem("myAppUser", user); location.reload(); }
+      else alert("Invalid Login!");
     }
   };
 
   if(currentUser) { document.getElementById('authContainer').style.display = 'none'; document.getElementById('mainPortal').style.display = 'block'; }
   window.logout = () => { localStorage.removeItem("myAppUser"); location.reload(); };
 
-  // Portal Logic
   window.submitRequest = () => {
-    push(ref(db, 'users/' + currentUser + '/inquiries/'), {
-      userName: document.getElementById("userName").value,
-      company: document.getElementById("compName").value,
-      concept: document.getElementById("concept").value,
-      status: "Pending"
-    }).then(() => alert("Request Submitted!"));
+    const newInquiryRef = push(ref(db, 'users/' + currentUser + '/inquiries/'));
+    set(newInquiryRef, {
+      details: {
+        userName: document.getElementById("userName").value,
+        company: document.getElementById("compName").value,
+        concept: document.getElementById("concept").value,
+        status: "Pending"
+      }
+    }).then(() => { alert("Request Submitted!"); location.reload(); });
   };
 
   window.showRequests = () => {
@@ -108,38 +101,49 @@
     onValue(ref(db, 'users/' + currentUser + '/inquiries/'), (snapshot) => {
       let list = document.getElementById('listView');
       list.innerHTML = "<h3>My Requests</h3>";
-      snapshot.forEach((child) => {
-        let d = child.val();
-        let key = child.key;
-        let card = document.createElement('div');
-        card.className = 'card';
-        card.innerHTML = `<p><b>App:</b> ${d.userName}<br><b>Status:</b> ${d.status}</p>`;
-        let btn = document.createElement('button');
-        btn.innerText = "Open Chat";
-        btn.onclick = () => openChat(key, d.company);
-        card.appendChild(btn);
-        list.appendChild(card);
-      });
+      if (snapshot.exists()) {
+        snapshot.forEach((child) => {
+          let d = child.val().details;
+          let key = child.key;
+          if(d) {
+            let card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `<p><b>App:</b> ${d.userName}<br><b>Status:</b> ${d.status}</p>`;
+            let btn = document.createElement('button');
+            btn.innerText = "Open Chat";
+            btn.onclick = () => openChat(key, d.company);
+            card.appendChild(btn);
+            list.appendChild(card);
+          }
+        });
+      } else { list.innerHTML += "<p>No requests found!</p>"; }
     });
   };
 
   window.openChat = (id, comp) => {
     currentOrderId = id;
+    document.getElementById('appForm').style.display = 'none';
     document.getElementById('listView').style.display = 'none';
     document.getElementById('chatView').style.display = 'block';
     document.getElementById('chatTitle').innerText = "Chat: " + comp;
-    onValue(ref(db, 'users/' + currentUser + '/chats/' + id), (snap) => {
+    onValue(ref(db, 'users/' + currentUser + '/inquiries/' + id + '/chats/'), (snap) => {
       let div = document.getElementById('chatMessages');
       div.innerHTML = "";
-      snap.forEach((c) => div.innerHTML += `<p><b>${c.val().sender}:</b> ${c.val().msg}</p>`);
+      snap.forEach((c) => {
+          let chatData = c.val();
+          div.innerHTML += `<p><b>${chatData.sender}:</b> ${chatData.msg}</p>`;
+      });
+      div.scrollTop = div.scrollHeight;
     });
   };
 
   window.sendMsg = () => {
-    let msg = document.getElementById("msgInput").value;
-    if(msg) {
-      push(ref(db, 'users/' + currentUser + '/chats/' + currentOrderId), { msg: msg, sender: "User" });
-      document.getElementById("msgInput").value = "";
+    let msgInput = document.getElementById("msgInput");
+    if(msgInput.value.trim() !== "" && currentOrderId !== "") {
+      push(ref(db, 'users/' + currentUser + '/inquiries/' + currentOrderId + '/chats/'), { 
+          msg: msgInput.value, 
+          sender: "User" 
+      }).then(() => { msgInput.value = ""; });
     }
   };
   window.goBack = () => { location.reload(); };
