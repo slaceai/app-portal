@@ -15,6 +15,7 @@
     input, textarea, select { width: 100%; padding: 12px; margin: 5px 0 10px 0; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
     button { padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; margin-top: 5px; width: 100%; }
     #chatMessages { height: 300px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px; background: white; margin-bottom: 10px; }
+    #paymentArea { display: none; margin-bottom: 15px; text-align: center; }
   </style>
 </head>
 <body>
@@ -44,8 +45,13 @@
   </form>
 
   <div id="listView"></div>
+  
   <div id="chatView">
     <h3 id="chatTitle">Chat</h3>
+    <!-- Payment Section -->
+    <div id="paymentArea">
+        <button id="payNowBtn" style="background:#ff9800; padding:15px; font-weight:bold; font-size:16px;">PAY NOW</button>
+    </div>
     <div id="chatMessages"></div>
     <input type="text" id="msgInput" placeholder="Type a message...">
     <button onclick="sendMsg()">Send</button>
@@ -126,6 +132,23 @@
     document.getElementById('listView').style.display = 'none';
     document.getElementById('chatView').style.display = 'block';
     document.getElementById('chatTitle').innerText = "Chat: " + comp;
+
+    // Check for Payment Request
+    onValue(ref(db, 'users/' + currentUser + '/inquiries/' + id + '/details/'), (snap) => {
+        let details = snap.val();
+        let payArea = document.getElementById('paymentArea');
+        if (details && details.status === "Payment_Pending" && details.price) {
+            payArea.style.display = 'block';
+            let payBtn = document.getElementById('payNowBtn');
+            payBtn.innerText = "PAY NOW - ₹" + details.price;
+            payBtn.onclick = () => {
+                window.location.href = `upi://pay?pa=adityashrivastav392@oksbi&pn=Aditya&am=${details.price}&cu=INR`;
+            };
+        } else {
+            payArea.style.display = 'none';
+        }
+    });
+
     onValue(ref(db, 'users/' + currentUser + '/inquiries/' + id + '/chats/'), (snap) => {
       let div = document.getElementById('chatMessages');
       div.innerHTML = "";
