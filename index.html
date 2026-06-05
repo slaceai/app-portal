@@ -9,7 +9,7 @@
     .auth-input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 1px solid #333; background: #000; color: white; box-sizing: border-box; }
     .auth-btn { width: 100%; padding: 12px; background: #28a745; border: none; color: white; border-radius: 8px; cursor: pointer; }
     
-    /* Original Code Styles */
+    /* Portal Styles */
     body { font-family: 'Segoe UI', sans-serif; background-color: #f4f7f6; margin: 0; padding: 15px; }
     .nav-container { position: fixed; top: 10px; left: 10px; z-index: 100; }
     #listView, #chatView { display: none; margin-top: 60px; max-width: 400px; margin: 60px auto; }
@@ -39,16 +39,11 @@
 
   <form id="appForm">
     <h2>App creator portal</h2>
-    <label>App Name:</label> <input type="text" id="userName" required>
-    <label>Company Name:</label> <input type="text" id="compName" required>
-    <label>Core Concept:</label> <textarea id="concept" rows="3" required></textarea>
-    <label>UI Style:</label>
-    <select id="uiStyle">
-      <option value="minimalist">Minimalist</option>
-      <option value="bold">Bold & Vibrant</option>
-    </select>
-    <label>Theme Color:</label> <input type="color" id="themeColor">
-    <label>Logo URL (Optional):</label> <input type="url" id="logoURL">
+    <input type="text" id="userName" placeholder="App Name" required>
+    <input type="text" id="compName" placeholder="Company Name" required>
+    <textarea id="concept" rows="3" placeholder="Core Concept" required></textarea>
+    <select id="uiStyle"><option value="minimalist">Minimalist</option><option value="bold">Bold</option></select>
+    <input type="color" id="themeColor">
     <button type="button" style="background:#28a745; padding:14px;" onclick="submitRequest()">Submit Request</button>
   </form>
 
@@ -66,8 +61,10 @@
   import { getDatabase, ref, push, onValue, update, get, set } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
   
   const db = getDatabase(initializeApp({ databaseURL: "https://slace-4d2ae-default-rtdb.asia-southeast1.firebasedatabase.app/" }));
-  
-  // Login Logic
+  let currentUser = localStorage.getItem("myAppUser");
+  let currentOrderId = "";
+
+  // Auth Logic
   let isLogin = true;
   window.toggleMode = () => {
     isLogin = !isLogin;
@@ -92,15 +89,10 @@
     }
   };
 
-  if(localStorage.getItem("myAppUser")) {
-    document.getElementById('authContainer').style.display = 'none';
-    document.getElementById('mainPortal').style.display = 'block';
-  }
-
+  if(currentUser) { document.getElementById('authContainer').style.display = 'none'; document.getElementById('mainPortal').style.display = 'block'; }
   window.logout = () => { localStorage.removeItem("myAppUser"); location.reload(); };
 
-  // Aapka Original Logic (thoda modification: users/username/inquiries)
-  let currentUser = localStorage.getItem("myAppUser");
+  // Portal Logic
   window.submitRequest = () => {
     push(ref(db, 'users/' + currentUser + '/inquiries/'), {
       userName: document.getElementById("userName").value,
@@ -121,19 +113,36 @@
         let key = child.key;
         let card = document.createElement('div');
         card.className = 'card';
-        card.innerHTML = `<p><b>User:</b> ${d.userName}<br><b>Company:</b> ${d.company}<br><b>Status:</b> ${d.status}</p>`;
-        let chatBtn = document.createElement('button');
-        chatBtn.innerText = "Open Chat";
-        chatBtn.onclick = () => openChat(key, d.company);
-        card.appendChild(chatBtn);
+        card.innerHTML = `<p><b>App:</b> ${d.userName}<br><b>Status:</b> ${d.status}</p>`;
+        let btn = document.createElement('button');
+        btn.innerText = "Open Chat";
+        btn.onclick = () => openChat(key, d.company);
+        card.appendChild(btn);
         list.appendChild(card);
       });
     });
   };
 
+  window.openChat = (id, comp) => {
+    currentOrderId = id;
+    document.getElementById('listView').style.display = 'none';
+    document.getElementById('chatView').style.display = 'block';
+    document.getElementById('chatTitle').innerText = "Chat: " + comp;
+    onValue(ref(db, 'users/' + currentUser + '/chats/' + id), (snap) => {
+      let div = document.getElementById('chatMessages');
+      div.innerHTML = "";
+      snap.forEach((c) => div.innerHTML += `<p><b>${c.val().sender}:</b> ${c.val().msg}</p>`);
+    });
+  };
+
+  window.sendMsg = () => {
+    let msg = document.getElementById("msgInput").value;
+    if(msg) {
+      push(ref(db, 'users/' + currentUser + '/chats/' + currentOrderId), { msg: msg, sender: "User" });
+      document.getElementById("msgInput").value = "";
+    }
+  };
   window.goBack = () => { location.reload(); };
-  window.openChat = (id, comp) => { /* ... Chat Logic ... */ };
-  window.sendMsg = () => { /* ... Send Msg Logic ... */ };
 </script>
 </body>
-  </html>
+</html>
