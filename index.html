@@ -24,6 +24,7 @@
   <h2 id="authTitle">Sign In</h2>
   <input type="text" id="username" class="auth-input" placeholder="Username">
   <input type="password" id="password" class="auth-input" placeholder="Password">
+  <input type="email" id="email" class="auth-input" placeholder="Email (Only for Sign Up)" style="display:none;">
   <button class="auth-btn" onclick="handleAuth()" id="authBtn">Sign In</button>
   <p id="toggleText" style="text-align:center; cursor:pointer; color:#007bff;" onclick="toggleMode()">Don't have an account? Sign Up</p>
 </div>
@@ -42,13 +43,13 @@
     <textarea id="concept" rows="3" placeholder="Core Concept" required></textarea>
     <select id="uiStyle"><option value="minimalist">Minimalist</option><option value="bold">Bold</option></select>
     <button type="button" style="background:#28a745; padding:14px;" onclick="submitRequest()">Submit Request</button>
+    <p style="font-size: 12px; color: #555; margin-top: 10px;"> <br> * When you have filled a form then please check my request and open chat on it about your app new updates. <br> <br> <br> By_____Slace____.</p>
   </form>
 
   <div id="listView"></div>
   
   <div id="chatView">
     <h3 id="chatTitle">Chat</h3>
-    <!-- Payment Section -->
     <div id="paymentArea">
         <button id="payNowBtn" style="background:#ff9800; padding:15px; font-weight:bold; font-size:16px;">PAY NOW</button>
     </div>
@@ -71,15 +72,17 @@
     document.getElementById('authTitle').innerText = isLogin ? "Sign Up" : "Sign In";
     document.getElementById('authBtn').innerText = isLogin ? "Sign Up" : "Sign In";
     document.getElementById('toggleText').innerText = isLogin ? "Already have an account? Sign In" : "Don't have an account? Sign Up";
+    document.getElementById('email').style.display = isLogin ? "block" : "none";
   };
 
   window.handleAuth = async () => {
     const user = document.getElementById('username').value;
     const pass = document.getElementById('password').value;
+    const email = document.getElementById('email').value;
     const userRef = ref(db, 'accounts/' + user);
     const snap = await get(userRef);
     if (document.getElementById('authTitle').innerText === "Sign Up") {
-      if (snap.exists()) alert("Username exists!"); else { await set(userRef, { password: pass }); alert("Created!"); }
+      if (snap.exists()) alert("Username exists!"); else { await set(userRef, { password: pass, email: email }); alert("Created!"); location.reload(); }
     } else {
       if (snap.exists() && snap.val().password === pass) { localStorage.setItem("myAppUser", user); location.reload(); }
       else alert("Invalid Login!");
@@ -133,7 +136,6 @@
     document.getElementById('chatView').style.display = 'block';
     document.getElementById('chatTitle').innerText = "Chat: " + comp;
 
-    // Check for Payment Request
     onValue(ref(db, 'users/' + currentUser + '/inquiries/' + id + '/details/'), (snap) => {
         let details = snap.val();
         let payArea = document.getElementById('paymentArea');
